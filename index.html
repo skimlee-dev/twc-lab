@@ -38,8 +38,8 @@
   input:focus{outline:2px solid var(--accent2);outline-offset:-1px;}
 
   /* header + search */
-  .top{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;}
-  .top .title{flex:1 1 220px;}
+  .pagehead{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;}
+  .pagehead .title{flex:1 1 220px;}
   .searchbox{position:relative;flex:2 1 320px;max-width:560px;}
   .searchbox input{width:100%;padding:10px 12px 10px 34px;font-size:14px;border-radius:10px;}
   .searchbox .mag{position:absolute;left:11px;top:10px;color:var(--muted);pointer-events:none;font-size:14px;}
@@ -175,7 +175,7 @@ window.addEventListener('error', function(e){ window.__showErr((e.message||'unkn
 window.addEventListener('unhandledrejection', function(e){ window.__showErr(String((e.reason&&e.reason.message)||e.reason)); });
 </script>
 <div class="wrap">
-  <header class="top">
+  <header class="pagehead">
     <div class="title">
       <h1>-80&#176;C Freezer Map</h1>
       <div class="sub">Click a rack to pull it out &#183; drag or &#8984;/Ctrl-click to select several</div>
@@ -322,7 +322,7 @@ const getRack = (f,l) => S.racks[f][l] || { owner:'', boxes:{} };
 /* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 persistence (Google Sheet via Apps Script) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 const hasGS = !!(window.google && google.script && google.script.run);
 // >>> EDIT THIS LINE: paste your Apps Script Web app link (ends in /exec) between the quotes <<<
-const API_URL = (function(){ var u = 'https://script.google.com/macros/s/AKfycbybZNeLENu0u_pOJB-IuyFUGjjpR3xncm7mHH7bB-uNE8L2fB2Dcut8QVcRWqcwJDoj/exec'; return u.indexOf('http') === 0 ? u : ''; })();
+const API_URL = (function(){ var u = 'https://script.google.com/macros/s/AKfycbxfdgitxnMV4KJ7eMrewEHVd1qg7vTt2_No6E8g-uZSmKX_QkNFYEiQjgkZWQWdfjMk/exec'; return u.indexOf('http') === 0 ? u : ''; })();
 let viaWeb = false;
 const gs = (fn, ...args) => new Promise((res, rej) => {
   const t = setTimeout(() => rej(new Error('Google did not answer (timeout)')), 15000);
