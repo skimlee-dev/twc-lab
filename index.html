@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>-80&#176;C Freezer Map</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --panel2:#22262f; --border:#2d323d;
+    --text:#e8eaed; --muted:#9aa0ac; --accent:#e0434f; --accent2:#4f8ff7;
+    --sel:#ffb648; --hit:#ffe14d; --cab:#e7eaef; --cab2:#d3d8df;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f3f4f7; --panel:#ffffff; --panel2:#eef0f4; --border:#d8dce3;
+      --text:#1b1e24; --muted:#656c78; --accent:#c92a35; --accent2:#2f6fe0;
+      --sel:#f59e0b; --hit:#f5c400;
+      color-scheme: light;
+    }
+  }
+  *{box-sizing:border-box;}
+  [hidden]{display:none !important;}
+  html,body{margin:0;}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;}
+  h1{font-size:19px;margin:0;}
+  h2{font-size:15px;margin:0 0 10px;}
+  .sub{color:var(--muted);font-size:12.5px;}
+  .wrap{max-width:1320px;margin:0 auto;padding:18px 18px 40px;}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  button{background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:8px 13px;font-size:13px;cursor:pointer;font-family:inherit;}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  button.danger{background:var(--accent);}
+  button.small{padding:5px 9px;font-size:12px;}
+  button.toggled{outline:2px solid var(--accent2);}
+  input,select{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 9px;font-size:13px;font-family:inherit;min-width:0;}
+  input:focus{outline:2px solid var(--accent2);outline-offset:-1px;}
+
+  /* header + search */
+  .top{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;}
+  .top .title{flex:1 1 220px;}
+  .searchbox{position:relative;flex:2 1 320px;max-width:560px;}
+  .searchbox input{width:100%;padding:10px 12px 10px 34px;font-size:14px;border-radius:10px;}
+  .searchbox .mag{position:absolute;left:11px;top:10px;color:var(--muted);pointer-events:none;font-size:14px;}
+  .results{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.35);max-height:420px;overflow:auto;z-index:80;}
+  .results .empty{padding:14px;color:var(--muted);}
+  .res{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);}
+  .res:last-child{border-bottom:none;}
+  .res:hover,.res.active{background:var(--panel2);}
+  .res .r-main{font-size:13.5px;}
+  .res .r-main b{font-weight:700;}
+  .res .r-sub{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .chip{display:inline-block;padding:1px 7px;border-radius:999px;background:var(--accent2);color:#fff;font-size:10.5px;font-weight:600;}
+  .chip.old{background:#8b6bd9;}
+  .res-more{padding:8px 12px;font-size:12px;color:var(--muted);}
+  .pill{background:transparent;color:var(--muted);border:1px solid var(--border);padding:6px 11px;font-size:12px;}
+  .pill b{color:var(--accent2);}
+  .status{margin:0 0 10px;padding:8px 12px;border-radius:8px;background:#5b4a14;color:#ffe9a8;font-size:12.5px;}
+  .status.err{background:#5a1f24;color:#ffc9cd;}
+  @media (prefers-color-scheme: light){ .status{background:#fff3cd;color:#6b5200;} .status.err{background:#fde2e4;color:#8a1c25;} }
+
+  /* freezer tabs */
+  .freezer-tabs{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .ftab{flex:1;min-width:230px;background:var(--panel);border:2px solid var(--border);border-radius:12px;padding:9px 10px;cursor:pointer;display:flex;gap:10px;align-items:center;transition:border-color .15s;}
+  .ftab.active{border-color:var(--accent2);}
+  .ftab .thumb{width:54px;height:54px;border-radius:8px;background:var(--panel2);object-fit:cover;display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+  .ftab .name{font-weight:700;font-size:14px;}
+  .ftab .spec{font-size:11px;color:var(--muted);}
+  .ftab .badge{margin-left:auto;align-self:flex-start;display:flex;flex-direction:column;align-items:flex-end;gap:5px;font-size:11px;}
+  .ftab .badge .m{background:var(--hit);color:#222;padding:1px 8px;border-radius:999px;font-weight:700;}
+  .ftab .photo-upload{color:var(--accent2);cursor:pointer;}
+
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);flex-wrap:wrap;margin:4px 0 10px;align-items:center;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .sw{width:14px;height:11px;border-radius:2px;display:inline-block;}
+
+  /* split */
+  .split{display:flex;gap:14px;align-items:flex-start;}
+  .pane{background:var(--panel);border:1px solid var(--border);border-radius:12px;position:relative;}
+  .pane-cab{flex:0 0 auto;}
+  .pane-rack{flex:1;min-width:0;}
+  .pane-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap;min-height:50px;}
+  .pane-head b{font-size:14px;}
+  @media (max-width:900px){ .split{flex-direction:column;} .pane-cab,.pane-rack{width:100%;flex:none;} }
+
+  /* cabinet */
+  .cabinet{display:grid;gap:12px 8px;padding:16px;margin:10px;border-radius:10px;justify-content:center;
+    background:linear-gradient(180deg,var(--cab),var(--cab2));box-shadow:inset 0 0 22px #0002;user-select:none;-webkit-user-select:none;}
+  .tile{position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;border-radius:4px;}
+  .tface{position:relative;overflow:hidden;border-radius:3px;transition:box-shadow .15s;}
+  .tile:hover .tface{box-shadow:0 0 0 2px #00000033;}
+  .tile.pulled .tface{background:#b4bac3;box-shadow:inset 0 0 14px #0007, 0 0 0 2px var(--accent2);}
+  .tile.pulled .front{visibility:hidden;}
+  .tile.sel .tface{box-shadow:0 0 0 3px var(--sel);}
+  .tile.hit .tface{box-shadow:0 0 0 3px var(--hit),0 0 14px 2px rgba(255,225,77,.6);}
+  .tile.dim{opacity:.4;}
+  .tcap{display:flex;flex-direction:column;align-items:center;line-height:1.15;margin-top:4px;width:100%;color:#2b2f36;}
+  .tcap b{display:block;width:100%;text-align:center;font-size:13px;color:#14171c;background:#fff;border-radius:999px;padding:1px 0;box-shadow:0 1px 2px #0003;}
+  .tcap .own{display:block;min-height:13px;width:calc(100% + 10px);margin:2px -5px 0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;font-weight:700;color:#3b4350;}
+  .tcap .bd{background:var(--hit);color:#222;border-radius:999px;padding:0 5px;font-weight:700;font-size:10px;margin-top:1px;}
+  .tcap .bd:empty{display:none;}
+
+  /* rack front face (shared by tiles and the 3D rack) */
+  .front{position:absolute;left:0;top:0;padding:9px 10px;display:flex;flex-direction:column;gap:4px;
+    background:linear-gradient(90deg,#a9b0b9,#e2e6ea 6%,#c9cfd6 50%,#e2e6ea 94%,#a9b0b9);border:2px solid #8b929c;border-radius:3px;}
+  .drawer{position:relative;flex:1;border-radius:3px;background:linear-gradient(#b3bac3,#8f97a1);border:1px solid #5f666f;box-shadow:inset 0 1px 0 #ffffff88;}
+  .drawer svg{position:absolute;left:50%;top:42%;width:118px;height:auto;transform:translate(-50%,-50%);pointer-events:none;}
+  .drawer .rn{position:absolute;left:7px;top:3px;font:700 12px sans-serif;color:#2f353d;pointer-events:none;}
+  .pips{position:absolute;left:8px;right:8px;bottom:5px;display:flex;gap:5px;pointer-events:none;}
+  .pip{flex:1;height:9px;border-radius:2px;background:#6d747e;box-shadow:inset 0 1px 1px #0004;}
+
+  /* stage with 3D rack */
+  .stage{position:relative;height:480px;overflow:visible;user-select:none;-webkit-user-select:none;}
+  .placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);padding:24px;font-size:13px;line-height:1.6;}
+  .scene{position:absolute;inset:0;perspective:1600px;z-index:30;pointer-events:none;}
+  .anchor{position:absolute;width:0;transform-style:preserve-3d;}
+  .cuboid{position:absolute;left:0;top:0;transform-origin:0 50%;transform-style:preserve-3d;pointer-events:auto;visibility:hidden;}
+  .cuboid .front{width:100%;height:100%;}
+  .drawer{cursor:pointer;}
+  .drawer:hover{background:linear-gradient(#c6ccd4,#a3abb5);}
+  .side{position:absolute;top:0;transform-origin:100% 50%;transform:rotateY(-90deg);
+    display:grid;gap:12px 6px;padding:14px;border:2px solid #8b929c;border-radius:2px;
+    background:linear-gradient(180deg,#d9dde3,#b5bbc4);}
+  .top{position:absolute;left:0;transform-origin:50% 100%;transform:rotateX(90deg);border:2px solid #8b929c;border-radius:2px;
+    background:linear-gradient(90deg,#c3c9d0,#eceff2 45%,#cdd2d9);}
+  .slotlbl{position:absolute;text-align:center;font:700 15px sans-serif;color:var(--text);letter-spacing:.2px;pointer-events:none;}
+  .rail{position:absolute;left:0;right:0;height:12px;background:linear-gradient(#f6f8fa,#b0b6bf 55%,#8f96a0);box-shadow:0 1px 2px #0005;}
+  .cell{position:relative;z-index:1;border-radius:3px;cursor:pointer;overflow:hidden;}
+  .cell.empty{background:#dfe2e7;box-shadow:inset 0 3px 8px #0004;border:1px dashed #a3aab4;}
+  .cell.empty:hover{background:#eef0f3;}
+  .cell.occ{background:#f6f7f9;box-shadow:0 2px 4px #0007, inset 0 0 0 1px #d3d7dd;}
+  .cell .tab{height:23px;line-height:23px;padding:0 8px;font:700 15px sans-serif;letter-spacing:.3px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cell .what{padding:3px 8px;font:11.5px/1.25 sans-serif;color:#2b2f36;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .cell.sel{outline:4px solid var(--sel);outline-offset:-4px;}
+  .cell.hit{box-shadow:0 0 0 3px var(--hit),0 0 18px 5px rgba(255,225,77,.85);}
+  .cell.dim{opacity:.45;}
+
+  .marquee{position:fixed;z-index:200;border:1.5px dashed var(--accent2);background:rgba(79,143,247,.16);pointer-events:none;border-radius:3px;}
+
+  .bulkbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-top:1px solid var(--border);background:var(--panel2);border-radius:0 0 12px 12px;}
+  .bulkbar input{flex:1;min-width:110px;}
+  .bulkbar .cnt{font-weight:700;color:var(--sel);font-size:13px;}
+  .capwrap{flex:1;min-width:230px;}
+  .cap{display:flex;align-items:center;gap:10px;margin-top:6px;}
+  .capbar{flex:1;height:11px;border-radius:999px;background:var(--panel2);border:1px solid var(--border);overflow:hidden;}
+  .capbar i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#4f8ff7,#7db0ff);transition:width .7s cubic-bezier(.4,0,.2,1),background .4s;}
+  .capbar i.full{background:linear-gradient(90deg,#e8913a,#e0434f);}
+  #capTxt{white-space:nowrap;}
+  .hint{padding:0 12px 10px;color:var(--muted);font-size:11.5px;}
+  .summary{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px 12px;font-size:12px;color:var(--muted);align-items:center;}
+  .summary .tag{display:inline-flex;gap:5px;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;color:var(--text);}
+  .summary .dot{width:9px;height:9px;border-radius:50%;}
+
+  .panel{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:14px;}
+  table{width:100%;min-width:360px;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;}
+  .over{color:var(--accent);font-weight:700;}
+  .note{color:var(--muted);font-size:12px;margin-top:10px;line-height:1.5;}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:300;}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;width:340px;max-width:92vw;}
+  .modal h3{margin:0 0 10px;font-size:15px;}
+  .modal .row{margin-bottom:8px;}
+  .modal input{width:100%;}
+  .modal ul{max-height:170px;overflow:auto;margin:8px 0;padding-left:18px;font-size:12px;color:var(--muted);}
+</style>
+</head>
+<body>
+<script>
+// If anything goes wrong on a device, show the reason on the page instead of a blank screen.
+window.__showErr = function(msg){ try{ var d=document.getElementById('status'); if(!d){ d=document.createElement('div'); document.body.insertBefore(d, document.body.firstChild); } d.hidden=false; d.className='status err'; d.textContent='Page error: '+msg; }catch(e){} };
+window.addEventListener('error', function(e){ window.__showErr((e.message||'unknown')+(e.lineno?' (line '+e.lineno+')':'')); });
+window.addEventListener('unhandledrejection', function(e){ window.__showErr(String((e.reason&&e.reason.message)||e.reason)); });
+</script>
+<div class="wrap">
+  <header class="top">
+    <div class="title">
+      <h1>-80&#176;C Freezer Map</h1>
+      <div class="sub">Click a rack to pull it out &#183; drag or &#8984;/Ctrl-click to select several</div>
+    </div>
+    <div class="searchbox">
+      <span class="mag">&#128269;</span>
+      <input id="q" type="search" placeholder="Find a sample: initials, project, contents&#8230;   ( / )" autocomplete="off">
+      <div id="results" class="results" hidden></div>
+    </div>
+    <button id="who" class="pill" title="Initials shown on boxes you edit">You: <b>set initials</b></button>
+  </header>
+
+  <div id="status" class="status">Starting&#8230; If this message stays on screen, the page's script did not start in this browser.</div>
+  <div id="tabs" class="freezer-tabs"></div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:#f6f7f9;border:1px solid #bbb"></i>Box (colour = initials)</span>
+    <span><i class="sw" style="background:#dfe2e7;border:1px dashed #a3aab4"></i>Empty slot</span>
+    <span><i class="sw" style="background:var(--sel)"></i>Selected</span>
+  </div>
+
+  <div class="split">
+    <section class="pane pane-cab">
+      <div class="pane-head">
+        <div class="capwrap"><b id="cabTitle">Freezer front</b><div class="cap"><div class="capbar"><i id="capFill"></i></div><span class="sub" id="capTxt"></span></div></div>
+        <div class="row">
+          <button id="selMode" class="secondary small" title="Tap/drag selects instead of opening (useful on touch screens)">Select mode</button>
+        </div>
+      </div>
+      <div id="cabinet" class="cabinet"></div>
+      <div class="hint" id="cabHint">Click = pull out &#183; &#8984;/Ctrl-click = add to selection &#183; drag = box select</div>
+      <div id="rackBulk" class="bulkbar" hidden>
+        <span class="cnt" id="rbCount"></span>
+        <input id="rbOwner" placeholder="Owner initials for selected racks" list="names" maxlength="10" style="text-transform:uppercase">
+        <button id="rbApply">Assign owner</button>
+        <button id="rbClear" class="secondary">Clear owner</button>
+        <button id="rbOff" class="secondary">Deselect</button>
+      </div>
+    </section>
+
+    <section class="pane pane-rack">
+      <div class="pane-head" id="rackHead">
+        <b id="rkTitle">No rack open</b>
+        <div class="row" id="rkTools" hidden>
+          <label class="sub" for="rkOwner">Owner</label>
+          <input id="rkOwner" placeholder="Initials" list="names" maxlength="10" style="width:120px;text-transform:uppercase">
+          <button id="rkClose" class="secondary small" title="Slide the rack back in">&#10005; Close</button>
+        </div>
+      </div>
+      <div class="stage" id="stage">
+        <div class="placeholder" id="placeholder">Select a rack on the left.<br>It slides out and turns so you can see every box from the side.</div>
+        <div class="scene" id="scene">
+          <div class="anchor" id="anchor">
+            <div class="cuboid" id="cuboid">
+              <div class="top" id="top"></div>
+              <div class="front" id="front"></div>
+              <div class="side" id="side"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="summary" id="summary"></div>
+      <div id="boxBulk" class="bulkbar" hidden>
+        <span class="cnt" id="bbCount"></span>
+        <input id="bbWho" placeholder="Initials" list="names" maxlength="10" style="text-transform:uppercase;flex:0 1 120px">
+        <input id="bbWhat" placeholder="Project / contents">
+        <button id="bbApply">Assign</button>
+        <button id="bbEmpty" class="danger">Empty</button>
+        <button id="bbOff" class="secondary">Deselect</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="quota" class="panel"></div>
+</div>
+<datalist id="names"></datalist>
+<div id="marquee" class="marquee" hidden></div>
+<div id="modalRoot"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 config \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+const LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWX'.split('');
+const FREEZERS = {
+  new: { key:'new', name:'PHCbi -80 Freezer', rows:6, deep:4 },
+  old: { key:'old', name:'Old freezer', rows:5, deep:5 }
+};
+const GRID_COLS = 6;                       // racks per shelf row (24 racks = 6 \u00D7 4)
+const MAX_RACKS = 4;
+const CELL_W = 128, CELL_H = 56, PAD = 14, ROW_GAP = 12, COL_GAP = 6, FRONT_W = 250;
+const ANGLE = 68, PERSP = 1600, VP_UP = 100;
+const spec = cfg => `${LABELS.length} racks (${GRID_COLS} racks \u00D7 ${LABELS.length/GRID_COLS} rows) \u00B7 ${cfg.rows*cfg.deep} boxes (${cfg.rows} rows \u00D7 ${cfg.deep} units deep)`;
+const cleanInit = (v, n=10) => (v||'').trim().toUpperCase().slice(0,n);
+const dims = cfg => ({
+  H: 2*PAD + cfg.rows*CELL_H + (cfg.rows-1)*ROW_GAP,
+  D: 2*PAD + cfg.deep*CELL_W + (cfg.deep-1)*COL_GAP
+});
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  if(attrs) for(const k in attrs){
+    const v = attrs[k]; if(v == null || v === false) continue;
+    if(k === 'class') el.className = v;
+    else if(k === 'style') el.style.cssText = v;
+    else if(k === 'dataset') Object.assign(el.dataset, v);
+    else if(k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for(const kid of kids.flat()){ if(kid == null || kid === false) continue; el.append(kid); }
+  return el;
+}
+function hue(name){ let x = 7; for(const c of (name||'').trim().toLowerCase()) x = (x*31 + c.charCodeAt(0)) % 360; return x; }
+const colTab = n => `hsl(${hue(n)} 55% 36%)`;
+const colPip = n => `hsl(${hue(n)} 70% 58%)`;
+function timeAgo(ts){
+  if(!ts) return ''; const m = Math.floor((Date.now()-ts)/60000);
+  if(m < 1) return 'just now'; if(m < 60) return m+'m ago';
+  const hr = Math.floor(m/60); if(hr < 24) return hr+'h ago';
+  return Math.floor(hr/24)+'d ago';
+}
+const clone = o => JSON.parse(JSON.stringify(o));
+const pk = (r,c) => r+'-'+c;
+const edited = b => `Last edited: ${b.by||'\u2014'} (${timeAgo(b.at)})`;
+const parsePos = p => p.split('-').map(Number);
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 state \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+const S = {
+  f:'new', racks:{ new:{}, old:{} }, photos:{},
+  open:null, selRacks:new Set(), selBoxes:new Set(),
+  q:'', matches:[], hitRack:{new:{},old:{}}, hitBox:{}, resIdx:-1,
+  selectMode:false, readOnly:false, editSeq:0,
+  busy:false, queued:null, dirty:false,
+  initials: (()=>{ try{ return localStorage.getItem('freezer_initials')||''; }catch(e){ return ''; } })(),
+  tileH:104, tileW:60, sT:.25, sf:1, rest:''
+};
+const getRack = (f,l) => S.racks[f][l] || { owner:'', boxes:{} };
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 persistence (Google Sheet via Apps Script) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+const hasGS = !!(window.google && google.script && google.script.run);
+// >>> EDIT THIS LINE: paste your Apps Script Web app link (ends in /exec) between the quotes <<<
+const API_URL = (function(){ var u = 'https://script.google.com/macros/s/AKfycbybZNeLENu0u_pOJB-IuyFUGjjpR3xncm7mHH7bB-uNE8L2fB2Dcut8QVcRWqcwJDoj/exec'; return u.indexOf('http') === 0 ? u : ''; })();
+let viaWeb = false;
+const gs = (fn, ...args) => new Promise((res, rej) => {
+  const t = setTimeout(() => rej(new Error('Google did not answer (timeout)')), 15000);
+  google.script.run.withSuccessHandler(v => { clearTimeout(t); res(v); }).withFailureHandler(e => { clearTimeout(t); rej(e); }) [fn](...args);
+});
+async function webCall(fn, args){            // plain request to the same web app; needs no Google sign-in
+  const r = await fetch(API_URL, { method:'POST', redirect:'follow', body: JSON.stringify({ fn:fn, args:args }) });
+  const txt = await r.text();
+  try{ return JSON.parse(txt); }catch(e){ throw new Error('Unexpected reply from the web app'); }
+}
+async function rpc(fn, ...args){
+  if(hasGS && !viaWeb){
+    try{ return await gs(fn, ...args); }
+    catch(e){ if(!API_URL) throw e; viaWeb = true; }
+  }
+  return await webCall(fn, args);
+}
+let PASS = (() => { try{ return localStorage.getItem('freezer_pass') || ''; }catch(e){ return ''; } })();
+function rememberPass(v){ PASS = v; try{ localStorage.setItem('freezer_pass', v); }catch(e){} }
+let version = -1, pending = 0, pollBusy = false;
+const chains = {};
+function setStatus(msg, err){ const el=$('#status'); el.hidden=!msg; el.textContent=msg||''; el.classList.toggle('err', !!err); }
+const errMsg = e => (e && (e.message || String(e))) || 'unknown error';
+
+function askPass(note){
+  return new Promise(res => {
+    const inp = h('input', {type:'password', placeholder:'Lab passcode', autocomplete:'current-password'});
+    openModal('Lab passcode', [
+      h('div', {class:'sub', style:'margin-bottom:8px'}, note || 'Enter the lab passcode once \u2014 this device will remember it.'), inp],
+      [{label:'Unlock', primary:true, onClick:c => { const v = inp.value.trim(); if(!v) return; rememberPass(v); c(); res(v); }}], {locked:true});
+  });
+}
+async function api(fn, ...args){      // every call carries the passcode; ask again if the server rejects it
+  if(!PASS) await askPass();
+  for(let i = 0; i < 4; i++){
+    const res = await rpc(fn, PASS, ...args);
+    if(!(res && res.error === 'badpass')) return res;
+    await askPass(i === 0 && PASS ? 'The passcode was changed or is incorrect. Enter it again.' : 'Incorrect passcode \u2014 try again.');
+  }
+  throw new Error('Wrong passcode');
+}
+function saveRack(f,l){
+  if(!hasGS && !API_URL) return;
+  const id = f+'-'+l;
+  pending++;
+  chains[id] = (chains[id] || Promise.resolve()).then(async () => {
+    const r = getRack(f,l); const boxes = {};
+    for(const p in r.boxes) if(r.boxes[p]) boxes[p] = r.boxes[p];
+    const res = await api('saveRack', id, {owner:r.owner||'', boxes});
+    if(res && res.error) throw new Error(res.error);
+    setStatus('');
+  }).catch(e => {
+    setStatus("Couldn't save \u2014 check your connection and try again (" + errMsg(e) + ').', true);
+  }).finally(() => { pending--; });
+}
+function editRack(f,l,fn){
+  const r = clone(getRack(f,l)); fn(r); S.racks[f][l] = r; S.editSeq++; saveRack(f,l);
+}
+async function poll(force){
+  if((!hasGS && !API_URL) || pending > 0 || pollBusy) return;
+  pollBusy = true; const seq = S.editSeq;
+  try{
+    const res = await api('poll', force ? -1 : version);
+    if(res.unchanged) { setStatus(''); return; }
+    if(S.editSeq !== seq || pending > 0) return;          // you edited meanwhile: next poll will catch up
+    version = res.version;
+    const next = { new:{}, old:{} };
+    for(const id in (res.racks || {})){
+      const m = /^(new|old)-([A-X])$/.exec(id); if(!m) continue;
+      const x = res.racks[id]; next[m[1]][m[2]] = { owner:x.owner||'', boxes:x.boxes||{} };
+    }
+    S.racks = next; S.photos = res.photos || {};
+    setStatus(''); refreshAll();
+  }catch(e){ setStatus("Can't reach the freezer data right now (" + errMsg(e) + "). What you see may be out of date.", true); }
+  finally{ pollBusy = false; }
+}
+function resizePhoto(file, size = 140){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onerror = rej;
+    fr.onload = () => { const img = new Image(); img.onerror = rej; img.onload = () => {
+      const c = document.createElement('canvas'); c.width = c.height = size; const x = c.getContext('2d');
+      const k = Math.max(size/img.width, size/img.height), w = img.width*k, hh = img.height*k;
+      x.drawImage(img, (size-w)/2, (size-hh)/2, w, hh); res(c.toDataURL('image/jpeg', .8)); };
+      img.src = fr.result; };
+    fr.readAsDataURL(file);
+  });
+}
+async function uploadPhoto(key, file){
+  try{
+    const url = await resizePhoto(file);
+    S.photos = {...S.photos, [key]:url}; renderTabs();
+    if(hasGS || API_URL){ const r = await api('savePhoto', key, url); if(r && r.error) throw new Error(r.error); }
+  }catch(e){ setStatus("Couldn't save the photo.", true); setTimeout(() => setStatus(''), 6000); }
+}
+async function initData(){
+  if(!hasGS && !API_URL){ setStatus('Preview mode \u2014 changes stay on this page only. To save and share, paste your web app link into API_URL near the top of this file.'); refreshAll(); return; }
+  setStatus('Loading freezer data\u2026');
+  await poll(true);
+  setInterval(() => { if(!document.hidden) poll(); }, 30000);   // cheap version check
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) poll(); });
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 front face of a rack (drawers with handles) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+const HANDLE = '\u003csvg viewBox="0 0 120 36" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M24 9H96L89 29H31Z" stroke="#4d545d" stroke-width="2.4"/><path d="M32 10V26L37 29H83" stroke="#f7f9fb" stroke-width="1.8"/><circle cx="13" cy="9" r="5" stroke="#f7f9fb" stroke-width="2.2"/><circle cx="107" cy="9" r="5" stroke="#f7f9fb" stroke-width="2.2"/><path d="M13 14C9 27 20 31 31 29" stroke="#eef1f4" stroke-width="2.2"/><path d="M107 14C111 27 100 31 89 29" stroke="#eef1f4" stroke-width="2.2"/></svg>';
+function fillFront(el, cfg, rack, {rowSelect} = {}){
+  const {H} = dims(cfg);
+  el.style.width = FRONT_W+'px'; el.style.height = H+'px';
+  el.replaceChildren();
+  for(let r=1; r<=cfg.rows; r++){
+    const pips = h('div', {class:'pips'});
+    for(let c=1; c<=cfg.deep; c++){
+      const b = rack.boxes[pk(r,c)];
+      pips.append(h('i', {class:'pip', style: b ? `background:${colPip(b.who)}` : ''}));
+    }
+    const d = h('div', {class:'drawer', dataset:{row:r}, title: rowSelect ? 'Select all of row '+r : ''});
+    d.innerHTML = HANDLE;
+    d.append(h('span', {class:'rn'}, r), pips);
+    el.append(d);
+  }
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 layout \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+function layoutTiles(){
+  const cfg = FREEZERS[S.f], {H} = dims(cfg);
+  const stacked = matchMedia('(max-width:900px)').matches;
+  let tileH = 104;
+  if(stacked){
+    const avail = $('.pane-cab').clientWidth - 20 - 32 - 8*5;
+    tileH = Math.min(120, (avail/6) * (H/FRONT_W));
+  }
+  S.tileH = Math.max(60, Math.floor(tileH)); S.sT = S.tileH/H; S.tileW = Math.round(FRONT_W*S.sT);
+  $('.pane-cab').style.width = stacked ? '' : (GRID_COLS*S.tileW + 5*8 + 32 + 20 + 2) + 'px';   // fixed so the pane never jumps when the bulk bar appears
+}
+function layoutStage(){
+  const cfg = FREEZERS[S.f], {H,D} = dims(cfg);
+  const stacked = matchMedia('(max-width:900px)').matches;
+  const stage = $('#stage'); const stageH = stacked ? 410 : 510; stage.style.height = stageH+'px';
+  const stageW = stage.clientWidth || 600;
+  const th = ANGLE*Math.PI/180, sinT = Math.sin(th), cosT = Math.cos(th);
+  const projW = D*sinT + FRONT_W*cosT;
+  const sf = Math.min((stageW-36)/projW, (stageH-96)/H, 1.35);
+  const axisX = (stageW - projW*sf)/2 + D*sinT*sf;
+  const a = $('#anchor'); a.style.left = axisX+'px'; a.style.top = ((stageH-H)/2 + 4)+'px'; a.style.height = H+'px';
+  const c = $('#cuboid'); c.style.width = FRONT_W+'px'; c.style.height = H+'px';
+  const s = $('#side'); s.style.width = D+'px'; s.style.height = H+'px'; s.style.left = (-D)+'px';
+  const tp = $('#top'); tp.style.width = FRONT_W+'px'; tp.style.height = D+'px'; tp.style.top = (-D)+'px';
+  S.restVP = `${Math.round(stageW/2)}px ${-VP_UP}px`;
+  $('#scene').style.perspective = PERSP+'px'; $('#scene').style.perspectiveOrigin = S.restVP;
+  S.sf = sf; S.rest = `translate3d(0px,0px,0px) scale3d(${sf},${sf},${sf}) rotateY(${ANGLE}deg)`;
+  if(S.open && !S.busy) c.style.transform = S.rest;
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 cabinet (left) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+function buildCabinet(){
+  const cfg = FREEZERS[S.f], cab = $('#cabinet');
+  cab.style.gridTemplateColumns = `repeat(${GRID_COLS}, ${S.tileW}px)`;
+  cab.replaceChildren();
+  LABELS.forEach(l => {
+    const r = getRack(S.f,l);
+    const front = h('div', {class:'front'}); fillFront(front, cfg, r);
+    front.style.transform = `scale(${S.sT})`; front.style.transformOrigin = '0 0';
+    const face = h('div', {class:'tface', style:`width:${S.tileW}px;height:${S.tileH}px`}, front);
+    const cap = h('div', {class:'tcap'}, h('b', null, l), h('span', {class:'own'}, r.owner||''), h('span', {class:'bd'}));
+    cab.append(h('div', {class:'tile', style:`width:${S.tileW}px`, dataset:{label:l}, title: r.owner ? `Rack ${l} \u2014 ${r.owner}` : `Rack ${l} (no owner)`}, face, cap));
+  });
+  const occ = LABELS.reduce((n,l)=> n + Object.values(getRack(S.f,l).boxes).filter(Boolean).length, 0);
+  $('#cabTitle').textContent = cfg.name;
+  const cap = LABELS.length*cfg.rows*cfg.deep, pct = cap ? occ/cap : 0;
+  const fill = $('#capFill'); fill.style.width = Math.max(pct*100, occ ? 1.5 : 0) + '%'; fill.classList.toggle('full', pct > .9);
+  $('#capTxt').textContent = `${occ}/${cap} boxes filled`;
+}
+const tileEl = l => document.querySelector(`.tile[data-label="${l}"]`);
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 3D rack (right) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+function buildCuboid(){
+  const cfg = FREEZERS[S.f];
+  if(!S.open){ $('#cuboid').style.visibility = 'hidden'; $('#placeholder').hidden = false; return; }
+  $('#placeholder').hidden = true;
+  const r = getRack(S.f, S.open), {H,D} = dims(cfg);
+  fillFront($('#front'), cfg, r, {rowSelect:true});
+  $('#front').style.width = '100%'; $('#front').style.height = '100%';
+  const side = $('#side'); side.replaceChildren();
+  side.style.gridTemplateColumns = `repeat(${cfg.deep}, ${CELL_W}px)`;
+  side.style.gridTemplateRows = `repeat(${cfg.rows}, ${CELL_H}px)`;
+  side.style.gap = `${ROW_GAP}px ${COL_GAP}px`;
+  for(let c=1; c<=cfg.deep; c++){   // slot labels under the face
+    side.append(h('div', {class:'slotlbl', style:`left:${PAD + (c-1)*(CELL_W+COL_GAP)}px;width:${CELL_W}px;top:${H+6}px`},
+      String(c)));
+  }
+  for(let i = 1; i < cfg.rows; i++) side.append(h('div', {class:'rail', style:`top:${PAD + i*(CELL_H+ROW_GAP) - ROW_GAP}px`}));
+  for(let rr=1; rr<=cfg.rows; rr++){
+    for(let c=1; c<=cfg.deep; c++){            // slot 1 = back (left), last slot = next to the handles (right)
+      const b = r.boxes[pk(rr,c)];
+      const cell = h('div', {class:'cell ' + (b ? 'occ' : 'empty'), dataset:{pos:pk(rr,c)},
+        title: b ? `${b.who} \u2014 ${b.what||''}\nRow ${rr}, slot ${c}\n${edited(b)}` : `Empty \u00B7 row ${rr}, slot ${c}`},
+        b ? [h('div', {class:'tab', style:`background:${colTab(b.who)}`}, b.who), h('div', {class:'what'}, b.what||'')] : null);
+      cell.style.gridColumn = String(c); cell.style.gridRow = String(rr);
+      side.append(cell);
+    }
+  }
+}
+async function flyOut(l){
+  const c = $('#cuboid'), sc = $('#scene');
+  const t = tileEl(l).querySelector('.tface').getBoundingClientRect();
+  const ar = $('#anchor').getBoundingClientRect(), sr = sc.getBoundingClientRect();
+  const dx = Math.round(t.left - ar.left), dy = Math.round(t.top + t.height/2 - (ar.top + ar.height/2));
+  const s = S.sT, Z = 520;
+  const A = `translate3d(${dx}px,${dy}px,0px) scale3d(${s},${s},${s}) rotateY(0deg)`;
+  const B = `translate3d(${dx}px,${dy}px,${Z}px) scale3d(${s},${s},${s}) rotateY(0deg)`;
+  const C = S.rest;
+  // camera sits above the rack, level with the tile \u2192 the rack comes toward you, drifts down, and its top shows
+  const vp0 = `${Math.round(t.left + t.width/2 - sr.left)}px ${Math.round(t.top - sr.top - 140)}px`;
+  c.style.transform = A; sc.style.perspectiveOrigin = vp0; c.style.visibility = 'visible';
+  const opts = {duration: reduced ? 1 : 1050, fill:'both'};
+  const e1 = 'cubic-bezier(.3,0,.25,1)', e2 = 'cubic-bezier(.45,0,.2,1)';   // no overshoot
+  const a1 = c.animate([{transform:A, offset:0, easing:e1}, {transform:B, offset:.34, easing:e2}, {transform:C, offset:1}], opts);
+  const a2 = sc.animate([{perspectiveOrigin:vp0, offset:0, easing:e1}, {perspectiveOrigin:vp0, offset:.34, easing:e2}, {perspectiveOrigin:S.restVP, offset:1}], opts);
+  try{ await Promise.all([a1.finished, a2.finished]); }catch(e){}
+  c.style.transform = C; sc.style.perspectiveOrigin = S.restVP; a1.cancel(); a2.cancel();
+}
+function putBack(){   // no return animation: the rack simply goes back in its slot
+  S.open = null; S.selBoxes.clear();
+  const c = $('#cuboid'); c.getAnimations().forEach(a => a.cancel()); c.style.visibility = 'hidden';
+}
+
+async function openRack(l){
+  if(S.busy){ S.queued = l; return; }
+  if(S.open === l) return;
+  S.busy = true;
+  try{
+    if(S.open) putBack();
+    S.selBoxes.clear();
+    S.open = l; buildCuboid(); renderRackHead(); renderSummary(); paint();
+    await flyOut(l);
+  } finally {
+    S.busy = false;
+    const q = S.queued; S.queued = null;
+    if(S.dirty){ S.dirty = false; refreshAll(); }
+    if(q && q !== S.open) openRack(q);
+  }
+}
+function closeRack(){
+  if(S.busy || !S.open) return;
+  putBack(); buildCuboid(); renderRackHead(); renderSummary(); paint();
+}
+function switchFreezer(f){
+  if(S.busy || S.f === f) return;
+  S.f = f; S.open = null; S.selRacks.clear(); S.selBoxes.clear();
+  const c = $('#cuboid'); c.style.visibility = 'hidden';
+  layoutTiles(); refreshAll(); layoutStage();
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 search \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+function computeSearch(){
+  const t = S.q.toLowerCase().split(/\s+/).filter(Boolean);
+  S.matches = []; S.hitRack = {new:{},old:{}}; S.hitBox = {};
+  if(!t.length) return;
+  for(const f of Object.keys(FREEZERS)) for(const l of LABELS){
+    const r = getRack(f,l), owner = (r.owner||'').toLowerCase();
+    if(owner && t.every(x => owner.includes(x))){ S.matches.push({f,l,kind:'rack'}); S.hitRack[f][l] = (S.hitRack[f][l]||0) + 0.5; }
+    const cfg = FREEZERS[f];
+    for(let rr=1; rr<=cfg.rows; rr++) for(let c=1; c<=cfg.deep; c++){
+      const p = pk(rr,c), b = r.boxes[p]; if(!b) continue;
+      const hay = `${b.who} ${b.what||''} ${b.by||''}`.toLowerCase();
+      if(t.every(x => hay.includes(x))){
+        S.matches.push({f,l,kind:'box',pos:p,box:b});
+        S.hitRack[f][l] = Math.floor(S.hitRack[f][l]||0) + 1;
+        (S.hitBox[f+'-'+l] = S.hitBox[f+'-'+l] || new Set()).add(p);
+      }
+    }
+  }
+}
+function renderResults(){
+  const box = $('#results');
+  if(!S.q.trim() || document.activeElement !== $('#q') && !box.matches(':hover')){ if(!S.q.trim()){ box.hidden = true; return; } }
+  box.hidden = false; box.replaceChildren();
+  if(!S.matches.length){ box.append(h('div', {class:'empty'}, `No matches for \u201C${S.q}\u201D.`)); return; }
+  const shown = S.matches.slice(0, 40);
+  shown.forEach((m,i) => {
+    const where = m.kind === 'rack' ? `Rack ${m.l} \u00B7 owner` : `Rack ${m.l} \u00B7 row ${parsePos(m.pos)[0]}, slot ${parsePos(m.pos)[1]}`;
+    const main = m.kind === 'rack'
+      ? h('div', {class:'r-main'}, h('b', null, getRack(m.f,m.l).owner), ' owns this rack')
+      : h('div', {class:'r-main'}, h('b', null, m.box.who), m.box.what ? ' \u2014 '+m.box.what : '');
+    const sub = h('div', {class:'r-sub'}, h('span', {class:'chip '+m.f}, FREEZERS[m.f].name), where,
+      m.kind === 'box' && m.box.by ? `\u00B7 ${edited(m.box)}` : '');
+    box.append(h('div', {class:'res'+(i===S.resIdx?' active':''), onmousedown:e=>{ e.preventDefault(); goTo(m); }}, main, sub));
+  });
+  if(S.matches.length > shown.length) box.append(h('div', {class:'res-more'}, `+${S.matches.length - shown.length} more \u2014 refine your search`));
+}
+async function goTo(m){
+  $('#results').hidden = true;
+  if(S.f !== m.f){ if(S.busy) return; switchFreezer(m.f); }
+  if(S.open !== m.l) await openRack(m.l);
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 painting selection / hits \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+function paint(){
+  const searching = !!S.q.trim();
+  $$('.tile').forEach(t => {
+    const l = t.dataset.label, hits = S.hitRack[S.f][l] || 0;
+    t.classList.toggle('sel', S.selRacks.has(l));
+    t.classList.toggle('pulled', S.open === l);
+    t.classList.toggle('hit', !!hits);
+    t.classList.toggle('dim', searching && !hits);
+    t.querySelector('.bd').textContent = hits >= 1 ? Math.floor(hits) : '';
+  });
+  const hb = S.hitBox[S.f+'-'+S.open];
+  $$('#side .cell').forEach(c => {
+    const p = c.dataset.pos;
+    c.classList.toggle('sel', S.selBoxes.has(p));
+    c.classList.toggle('hit', !!(hb && hb.has(p)));
+    c.classList.toggle('dim', searching && c.classList.contains('occ') && !(hb && hb.has(p)));
+  });
+  const nr = S.selRacks.size, nb = S.selBoxes.size;
+  $('#rackBulk').hidden = !nr || S.readOnly; $('#rbCount').textContent = `${nr} rack${nr===1?'':'s'} selected`;
+  $('#boxBulk').hidden = !nb || S.readOnly; $('#bbCount').textContent = `${nb} box${nb===1?'':'es'} selected`;
+  $('#selMode').classList.toggle('toggled', S.selectMode);
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 headers, summary, tabs, quota \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+function renderRackHead(){
+  const tools = $('#rkTools');
+  if(!S.open){ $('#rkTitle').textContent = 'No rack open'; tools.hidden = true; return; }
+  const r = getRack(S.f,S.open);
+  $('#rkTitle').textContent = `Rack ${S.open} \u00B7 ${FREEZERS[S.f].name}`;
+  tools.hidden = false;
+  const inp = $('#rkOwner'); if(document.activeElement !== inp) inp.value = r.owner || '';
+  inp.disabled = S.readOnly;
+}
+function renderSummary(){
+  const box = $('#summary'); box.replaceChildren();
+  if(!S.open) return;
+  const cfg = FREEZERS[S.f], r = getRack(S.f,S.open), total = cfg.rows*cfg.deep, counts = {};
+  Object.values(r.boxes).forEach(b => { if(b) counts[b.who] = (counts[b.who]||0)+1; });
+  const filled = Object.values(counts).reduce((a,b)=>a+b,0);
+  box.append(`${filled}/${total} slots filled`);
+  Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([n,c]) =>
+    box.append(h('span', {class:'tag'}, h('i', {class:'dot', style:`background:${colPip(n)}`}), `${n} \u00D7 ${c}`)));
+}
+function renderTabs(){
+  const wrap = $('#tabs'); wrap.replaceChildren();
+  Object.values(FREEZERS).forEach(cfg => {
+    const total = LABELS.length*cfg.rows*cfg.deep;
+    const occ = LABELS.reduce((n,l)=> n + Object.values(getRack(cfg.key,l).boxes).filter(Boolean).length, 0);
+    const hits = Object.values(S.hitRack[cfg.key]).reduce((a,b)=>a+Math.floor(b),0);
+    const photo = S.photos[cfg.key];
+    const thumb = (photo && String(photo).startsWith('data:image/')) ? h('img', {class:'thumb', src:photo, alt:cfg.name}) : h('div', {class:'thumb'}, '\uD83E\uDDCA');
+    const badge = h('div', {class:'badge'},
+      S.q.trim() && hits ? h('span', {class:'m'}, hits+' match'+(hits===1?'':'es')) : null,
+      h('label', {class:'photo-upload', onclick:e=>e.stopPropagation()}, photo ? 'Change photo' : 'Add photo',
+        h('input', {type:'file', accept:'image/jpeg,image/png,image/webp,image/heic', style:'display:none', onchange:e=>{ if(e.target.files[0]) uploadPhoto(cfg.key, e.target.files[0]); }})));
+    wrap.append(h('div', {class:'ftab'+(S.f===cfg.key?' active':''), onclick:()=>switchFreezer(cfg.key)}, thumb,
+      h('div', null, h('div', {class:'name'}, cfg.name),
+        h('div', {class:'spec'}, `${spec(cfg)} \u00B7 ${occ}/${total} boxes filled`)), badge));
+  });
+}
+function renderQuota(){
+  const box = $('#quota');
+  const people = {};
+  const P = n => { const k = n.trim().toLowerCase(); return people[k] || (people[k] = {name:n.trim().toUpperCase(), racks:0, boxes:0}); };
+  Object.keys(FREEZERS).forEach(f => LABELS.forEach(l => {
+    const r = getRack(f,l); if((r.owner||'').trim()) P(r.owner).racks++;
+    Object.values(r.boxes).forEach(b => { if(b && (b.who||'').trim()) P(b.who).boxes++; });
+  }));
+  const rows = Object.values(people).sort((a,b)=>a.name.localeCompare(b.name));
+  const tbody = h('tbody');
+  rows.forEach(p => tbody.append(h('tr', null, h('td', null, p.name),
+    h('td', {class: p.racks > MAX_RACKS ? 'over' : '', title: p.racks > MAX_RACKS ? 'Over the 4-rack limit' : ''}, p.racks),
+    h('td', null, p.boxes))));
+  if(!rows.length) tbody.append(h('tr', null, h('td', {colspan:3, style:'color:var(--muted)'}, 'No racks assigned yet.')));
+  box.replaceChildren(h('h2', null, 'Rack Chart'),
+    h('table', null, h('thead', null, h('tr', null, ['Initials', `Racks owned (${MAX_RACKS} max, both freezers)`, 'Boxes stored'].map(t => h('th', null, t)))), tbody));
+}
+function updateNames(){
+  const set = new Set();
+  Object.keys(FREEZERS).forEach(f => LABELS.forEach(l => { const r = getRack(f,l); if(r.owner) set.add(r.owner); Object.values(r.boxes).forEach(b => b && b.who && set.add(b.who)); }));
+  $('#names').replaceChildren(...[...set].sort().map(n => h('option', {value:n})));
+}
+function renderWho(){ $('#who').replaceChildren('You: ', h('b', null, S.initials || 'set initials')); }
+
+function refreshAll(){
+  if(S.busy){ S.dirty = true; return; }
+  computeSearch(); buildCabinet(); buildCuboid(); renderTabs(); renderRackHead(); renderSummary(); renderQuota(); renderResults(); updateNames(); paint();
+  if(S.open) $('#cuboid').style.transform = S.rest;
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 modals \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+function openModal(title, bodyNodes, actions, opts){
+  opts = opts || {};
+  const root = $('#modalRoot');
+  const close = () => { root.replaceChildren(); document.removeEventListener('keydown', onKey, true); };
+  const onKey = e => { if(e.key === 'Escape'){ e.stopPropagation(); if(!opts.locked) close(); } else if(e.key === 'Enter' && e.target.tagName === 'INPUT'){ const p = actions.find(a => a.primary); if(p){ e.preventDefault(); p.onClick(close); } } };
+  document.addEventListener('keydown', onKey, true);
+  const btns = actions.map(a => h('button', {class:a.cls||'', onclick:() => a.onClick(close)}, a.label));
+  root.replaceChildren(h('div', {class:'modal-bg', onmousedown:e => { if(!opts.locked && e.target.classList.contains('modal-bg')) close(); }},
+    h('div', {class:'modal'}, h('h3', null, title), ...bodyNodes, h('div', {class:'row', style:'justify-content:flex-end;margin:12px 0 0'}, ...btns))));
+  const first = root.querySelector('input'); if(first) first.focus();
+  return close;
+}
+function ensureInitials(){
+  return new Promise(res => {
+    if(S.initials) return res(S.initials);
+    const inp = h('input', {placeholder:'e.g. SL', maxlength:'4', style:'text-transform:uppercase'});
+    openModal('Quick one-time setup', [h('div', {class:'sub', style:'margin-bottom:8px'}, 'Your initials are shown as \u201CLast edited\u201D on boxes you change, so others know who to ask.'), inp], [
+      {label:'Skip', cls:'secondary', onClick:c => { c(); res('??'); }},
+      {label:'Save', primary:true, onClick:c => { const v = cleanInit(inp.value,4); if(v){ setInitials(v); } c(); res(v || '??'); }}]);
+  });
+}
+function setInitials(v){ S.initials = v; try{ localStorage.setItem('freezer_initials', v); }catch(e){} renderWho(); }
+function editBoxModal(pos){
+  const f = S.f, l = S.open, cur = getRack(f,l).boxes[pos];
+  const [r,c] = parsePos(pos);
+  const who = h('input', {placeholder:'Initials / name', list:'names', maxlength:'10', style:'text-transform:uppercase', value:cur ? cur.who : (S.initials && S.initials !== '??' ? S.initials : ''), disabled:S.readOnly});
+  const what = h('input', {placeholder:'Project / contents', value:cur ? (cur.what||'') : '', disabled:S.readOnly});
+  const actions = [];
+  if(!S.readOnly){
+    if(cur) actions.push({label:'Clear', cls:'danger', onClick:cl => { editRack(f,l,x => { delete x.boxes[pos]; }); cl(); afterEdit(); }});
+    actions.push({label:'Cancel', cls:'secondary', onClick:cl => cl()});
+    actions.push({label:'Save', primary:true, onClick:async cl => {
+      const w = cleanInit(who.value); cl();
+      if(!w){ if(cur){ editRack(f,l,x => { delete x.boxes[pos]; }); afterEdit(); } return; }
+      const by = await ensureInitials();
+      editRack(f,l,x => { x.boxes[pos] = {who:w, what:what.value.trim(), by:by||'??', at:Date.now()}; }); afterEdit();
+    }});
+  } else actions.push({label:'Close', cls:'secondary', onClick:cl => cl()});
+  openModal(`Rack ${l} \u00B7 row ${r}, slot ${c}`, [h('div', {class:'row'}, who), h('div', {class:'row'}, what),
+    cur ? h('div', {class:'sub'}, edited(cur)) : null], actions);
+}
+function afterEdit(){ refreshAll(); }
+function confirmModal(title, items, onConfirm){
+  openModal(title, [h('ul', null, items.map(i => h('li', null, i))), h('div', {class:'sub'}, 'Double-check this list \u2014 it will overwrite what is currently there.')],
+    [{label:'Cancel', cls:'secondary', onClick:c => c()}, {label:'Confirm', primary:true, onClick:c => { c(); onConfirm(); }}]);
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 bulk actions \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+async function applyRackOwner(owner){
+  const labels = [...S.selRacks].sort(), f = S.f;
+  const act = () => { labels.forEach(l => editRack(f,l,x => { x.owner = owner; })); S.selRacks.clear(); $('#rbOwner').value = ''; refreshAll(); };
+  const clashes = labels.filter(l => (getRack(f,l).owner||'').trim() && getRack(f,l).owner.trim() !== owner.trim());
+  if(clashes.length) confirmModal(owner ? `Assign \u201C${owner}\u201D to ${labels.length} rack(s)?` : `Clear owner on ${labels.length} rack(s)?`,
+    labels.map(l => `Rack ${l}` + (getRack(f,l).owner ? ` (currently ${getRack(f,l).owner})` : '')), act);
+  else act();
+}
+async function applyBoxes(empty){
+  const f = S.f, l = S.open, pos = [...S.selBoxes].sort((a,b) => { const [r1,c1]=parsePos(a),[r2,c2]=parsePos(b); return r1-r2 || c1-c2; });
+  const who = cleanInit($('#bbWho').value), what = $('#bbWhat').value.trim();
+  if(!empty && !who) return;
+  const by = empty ? '' : await ensureInitials();
+  const act = () => { editRack(f,l,x => pos.forEach(p => { if(empty) delete x.boxes[p]; else x.boxes[p] = {who, what, by:by||'??', at:Date.now()}; }));
+    S.selBoxes.clear(); $('#bbWho').value = ''; $('#bbWhat').value = ''; refreshAll(); };
+  const occupied = pos.filter(p => getRack(f,l).boxes[p]);
+  const label = p => { const [r,c] = parsePos(p); const b = getRack(f,l).boxes[p]; return `Row ${r}, slot ${c}` + (b ? ` (currently ${b.who})` : ''); };
+  if(occupied.length) confirmModal(empty ? `Empty ${pos.length} slot(s) in Rack ${l}?` : `Assign \u201C${who}\u201D to ${pos.length} slot(s) in Rack ${l}?`, pos.map(label), act);
+  else if(empty){ S.selBoxes.clear(); paint(); }
+  else act();
+}
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 selection: click, modifiers, drag marquee \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+let suppressClick = false;
+$('#cabinet').addEventListener('click', e => {
+  if(suppressClick) return;
+  const t = e.target.closest('.tile'); if(!t) return;
+  const l = t.dataset.label, mod = e.metaKey || e.ctrlKey;
+  if(mod || S.selectMode){
+    if(S.selRacks.has(l)) S.selRacks.delete(l); else S.selRacks.add(l);
+  } else { S.selRacks.clear(); paint(); openRack(l); return; }
+  paint();
+});
+$('#side').addEventListener('click', e => {
+  if(suppressClick) return;
+  const c = e.target.closest('.cell'); if(!c) return;
+  const p = c.dataset.pos, mod = e.metaKey || e.ctrlKey;
+  if(mod || S.selectMode){ if(S.selBoxes.has(p)) S.selBoxes.delete(p); else S.selBoxes.add(p); }
+  else { S.selBoxes.clear(); paint(); editBoxModal(p); return; }
+  paint();
+});
+$('#front').addEventListener('click', e => {
+  const d = e.target.closest('.drawer'); if(!d || suppressClick) return;
+  const row = +d.dataset.row, cfg = FREEZERS[S.f];
+  if(!(e.metaKey || e.ctrlKey)) S.selBoxes.clear();
+  for(let c=1;c<=cfg.deep;c++) S.selBoxes.add(pk(row,c));
+  paint();
+});
+
+function setupMarquee(container, itemsSel, getSel, setSel){
+  container.addEventListener('pointerdown', e => {
+    if(e.button !== 0 || (e.pointerType === 'touch' && !S.selectMode)) return;
+    if(e.target.closest('input,select,textarea,label')) return;
+    const sx = e.clientX, sy = e.clientY; let dragging = false, items = null;
+    const additive = e.metaKey || e.ctrlKey, base = additive ? new Set(getSel()) : new Set();
+    const mq = $('#marquee');
+    const move = ev => {
+      if(!dragging){ if(Math.hypot(ev.clientX-sx, ev.clientY-sy) < 6) return; dragging = true;
+        items = $$(itemsSel).map(el => ({el, key: el.dataset.label || el.dataset.pos})); }
+      const x1 = Math.min(sx,ev.clientX), y1 = Math.min(sy,ev.clientY), x2 = Math.max(sx,ev.clientX), y2 = Math.max(sy,ev.clientY);
+      Object.assign(mq.style, {left:x1+'px', top:y1+'px', width:(x2-x1)+'px', height:(y2-y1)+'px'}); mq.hidden = false;
+      const next = new Set(base);
+      items.forEach(({el,key}) => { const r = el.getBoundingClientRect(); if(r.right>=x1 && r.left<=x2 && r.bottom>=y1 && r.top<=y2) next.add(key); });
+      setSel(next); paint();
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      mq.hidden = true; if(dragging){ suppressClick = true; setTimeout(() => suppressClick = false, 0); }
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  });
+}
+setupMarquee($('#cabinet'), '.tile', () => S.selRacks, s => { S.selRacks = s; });
+setupMarquee($('#stage'), '#side .cell', () => S.selBoxes, s => { S.selBoxes = s; });
+$('#cabinet').style.touchAction = 'pan-y';
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 wiring \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+$('#selMode').onclick = () => { S.selectMode = !S.selectMode; $('#stage').style.touchAction = $('#cabinet').style.touchAction = S.selectMode ? 'none' : (S.selectMode ? '' : 'pan-y'); paint(); };
+$('#rkClose').onclick = closeRack;
+$('#rkOwner').addEventListener('change', e => { if(!S.open || S.readOnly) return; const v = cleanInit(e.target.value); e.target.value = v; editRack(S.f, S.open, x => { x.owner = v; }); refreshAll(); });
+$('#rbApply').onclick = () => { const v = cleanInit($('#rbOwner').value); if(v) applyRackOwner(v); };
+$('#rbClear').onclick = () => applyRackOwner('');
+$('#rbOff').onclick = () => { S.selRacks.clear(); paint(); };
+$('#bbApply').onclick = () => applyBoxes(false);
+$('#bbEmpty').onclick = () => applyBoxes(true);
+$('#bbOff').onclick = () => { S.selBoxes.clear(); paint(); };
+$('#who').onclick = () => { const inp = h('input', {value:S.initials, maxlength:'4', placeholder:'Initials', style:'text-transform:uppercase'});
+  openModal('Your initials', [inp], [{label:'Cancel', cls:'secondary', onClick:c => c()}, {label:'Save', primary:true, onClick:c => { const v = cleanInit(inp.value,4); if(v) setInitials(v); c(); }}]); };
+
+const qi = $('#q');
+qi.addEventListener('input', () => { S.q = qi.value; S.resIdx = -1; computeSearch(); renderResults(); renderTabs(); paint(); });
+qi.addEventListener('focus', () => { if(S.q.trim()) { $('#results').hidden = false; renderResults(); } });
+qi.addEventListener('blur', () => setTimeout(() => { $('#results').hidden = true; }, 120));
+qi.addEventListener('keydown', e => {
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); const n = Math.min(S.matches.length, 40); if(n){ S.resIdx = (S.resIdx + (e.key==='ArrowDown'?1:-1) + n) % n; renderResults(); } }
+  else if(e.key === 'Enter'){ const m = S.matches[Math.max(0,S.resIdx)]; if(m) goTo(m); }
+  else if(e.key === 'Escape'){ qi.value = ''; S.q = ''; computeSearch(); $('#results').hidden = true; renderTabs(); paint(); qi.blur(); }
+});
+document.addEventListener('keydown', e => {
+  const typing = /INPUT|TEXTAREA|SELECT/.test((e.target.tagName||'')) ;
+  if(e.key === '/' && !typing){ e.preventDefault(); qi.focus(); }
+  else if(e.key === 'Escape' && !typing){ S.selRacks.clear(); S.selBoxes.clear(); paint(); }
+});
+addEventListener('resize', () => { if(S.busy) return; layoutTiles(); buildCabinet(); layoutStage(); paint(); });
+new ResizeObserver(() => { if(!S.busy) layoutStage(); }).observe($('#stage'));
+
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 start \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+setStatus(''); renderWho(); layoutTiles(); refreshAll(); layoutStage(); requestAnimationFrame(() => { layoutStage(); });
+initData();
+// expose a tiny hook for testing
+window.__freezer = { S, openRack, closeRack };
+})();
+</script>
+</body>
+</html>
